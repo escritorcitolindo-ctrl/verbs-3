@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art & Shapes Flashcards - Kids Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --secondary: #f39c12;
+            --bg: #eef2f3;
+            --card-front: #ffffff;
+            --card-back: #27ae60;
+        }
+
+        body {
+            font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        #game-container {
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .card-wrapper {
+            perspective: 1000px;
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+
+        .card {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .card-front { background: var(--card-front); }
+        .card-back { background: var(--card-back); transform: rotateY(180deg); color: white; }
+
+        .card img {
+            width: 90%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 15px;
+            border: 4px solid #eee;
+        }
+
+        .text-phrase { font-size: 1.5rem; margin-top: 20px; color: #333; }
+        .text-es { font-size: 1.8rem; font-weight: bold; }
+
+        button {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 50px;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        button:disabled { background: #ccc; cursor: not-allowed; transform: scale(1) !important; }
+        button:hover:not(:disabled) { transform: scale(1.05); background: #357abd; }
+
+        #game-over { display: none; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        
+        input { padding: 10px; font-size: 1rem; border-radius: 10px; border: 2px solid #ddd; width: 80%; margin-bottom: 20px; }
+        
+        .user-list { text-align: left; background: #f9f9f9; padding: 15px; border-radius: 10px; margin-top: 20px; }
+
+        #progress { font-weight: bold; color: #666; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="progress">Tarjeta 1 / 28</div>
+        <div class="card-wrapper" onclick="handleFlip()">
+            <div class="card" id="main-card">
+                <div class="card-face card-front">
+                    <img id="img-en" src="" alt="Learning Image">
+                    <div class="text-phrase" id="txt-en"></div>
+                </div>
+                <div class="card-face card-back">
+                    <div class="text-es" id="txt-es"></div>
+                </div>
+            </div>
+        </div>
+        <button id="btn-next" onclick="handleNext()" disabled>Siguiente →</button>
+    </div>
+
+    <div id="game-over">
+        <h1 style="color: #e74c3c;">GAME OVER</h1>
+        <p>¡Increíble trabajo! Eres un experto en formas y arte.</p>
+        <input type="text" id="player-name" placeholder="Escribe tu nombre aquí...">
+        <br>
+        <button onclick="registerPlayer()">Registrar mi nombre</button>
+        <div class="user-list">
+            <strong>Participantes anteriores:</strong>
+            <ul id="history"></ul>
+        </div>
+    </div>
+
+<script>
+    const vocabulary = [
+        { en: "A shape", es: "Una forma", img: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=500" },
+        { en: "Art theorists", es: "Teóricos del arte", img: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=500" },
+        { en: "The building blocks", es: "Los bloques de construcción", img: "https://images.unsplash.com/photo-1585338107529-13afc5f02586?w=500" },
+        { en: "To create images", es: "Para crear imágenes", img: "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=500" },
+        { en: "In our minds", es: "En nuestras mentes", img: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=500" },
+        { en: "An enclosed space", es: "Un espacio cerrado", img: "https://images.unsplash.com/photo-1595428707305-faea5935efbb?w=500" },
+        { en: "A bounded two-dimensional form", es: "Una forma bidimensional limitada", img: "https://images.unsplash.com/photo-1557683311-eac922347aa1?w=500" },
+        { en: "Length and width", es: "Largo y ancho", img: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=500" },
+        { en: "Its boundaries", es: "Sus límites", img: "https://images.unsplash.com/photo-1508614995948-4cd35b8457c0?w=500" },
+        { en: "You can add value", es: "Puedes agregar valor", img: "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=500" },
+        { en: "Highlights and shadows", es: "Luces y sombras", img: "https://images.unsplash.com/photo-1478737270239-2fccd2c7862a?w=500" },
+        { en: "Shapes are everywhere", es: "Las formas están en todas partes", img: "https://images.unsplash.com/photo-1493246507139-91e8bef99c02?w=500" },
+        { en: "They have clear edges", es: "Ellas tienen bordes claros", img: "https://images.unsplash.com/photo-1502136191732-c6823f269e4a?w=500" },
+        { en: "Protractors and compasses", es: "Graduadores y compases", img: "https://images.unsplash.com/photo-1581094481232-af5c3dc8003e?w=500" },
+        { en: "Circles", es: "Círculos", img: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=500" },
+        { en: "Squares", es: "Cuadrados", img: "https://images.unsplash.com/photo-1521405924368-64c5b84bec60?w=500" },
+        { en: "Rectangles", es: "Rectángulos", img: "https://images.unsplash.com/photo-1505330622279-bf7d7fc918f4?w=500" },
+        { en: "Triangles", es: "Triángulos", img: "https://images.unsplash.com/photo-1543362906-acfc16c67564?w=500" },
+        { en: "Polygons", es: "Polígonos", img: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=500" },
+        { en: "Biomorphic shapes", es: "Formas biomórficas", img: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=500" },
+        { en: "Just the opposite", es: "Justo lo opuesto", img: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=500" },
+        { en: "They have no names", es: "Ellas no tienen nombres", img: "https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?w=500" },
+        { en: "No defined angles", es: "Sin ángulos definidos", img: "https://images.unsplash.com/photo-1544333346-64e4fe182547?w=500" },
+        { en: "No standards", es: "Sin estándares", img: "https://images.unsplash.com/photo-1589998059171-988d887df646?w=500" },
+        { en: "No tools", es: "Sin herramientas", img: "https://images.unsplash.com/photo-1516962215378-7fa2e137ae93?w=500" },
+        { en: "They can be found in nature", es: "Se pueden encontrar en la naturaleza", img: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=500" },
+        { en: "As amorphous as a cloud", es: "Tan amorfo como una nube", img: "https://images.unsplash.com/photo-1534088568595-a066f77ec282?w=500" },
+        { en: "As precise as a leaf", es: "Tan preciso como una hoja", img: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=500" }
+    ];
+
+    let currentIdx = 0;
+    let isFlipped = false;
+    let synth = window.speechSynthesis;
+
+    function initCard() {
+        const item = vocabulary[currentIdx];
+        document.getElementById('img-en').src = item.img;
+        document.getElementById('txt-en').innerText = item.en;
+        document.getElementById('txt-es').innerText = item.es;
+        document.getElementById('progress').innerText = `Tarjeta ${currentIdx + 1} / ${vocabulary.length}`;
+        document.getElementById('main-card').classList.remove('flipped');
+        document.getElementById('btn-next').disabled = true;
+        isFlipped = false;
+        playAudio(item.en, 'en-US');
+    }
+
+    function handleFlip() {
+        const card = document.getElementById('main-card');
+        card.classList.toggle('flipped');
+        isFlipped = !isFlipped;
+
+        if (isFlipped) {
+            // Efecto Confeti
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            playAudio(vocabulary[currentIdx].es, 'es-EC'); // Acento Latinoamericano (Ecuador si disponible)
+            document.getElementById('btn-next').disabled = false;
+        } else {
+            playAudio(vocabulary[currentIdx].en, 'en-US');
+        }
+    }
+
+    function playAudio(text, lang) {
+        synth.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = lang;
+        utter.rate = 0.85; // Velocidad pausada para niños
+        synth.speak(utter);
+    }
+
+    function handleNext() {
+        if (currentIdx < vocabulary.length - 1) {
+            currentIdx++;
+            initCard();
+        } else {
+            showGameOver();
+        }
+    }
+
+    function showGameOver() {
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('game-over').style.display = 'block';
+        updateHistory();
+    }
+
+    function registerPlayer() {
+        const name = document.getElementById('player-name').value;
+        if (name.trim() === "") return alert("¡Por favor ingresa tu nombre!");
+        
+        let players = JSON.parse(localStorage.getItem('art_players') || "[]");
+        players.push(name + " - " + new Date().toLocaleDateString());
+        localStorage.setItem('art_players', JSON.stringify(players));
+        
+        document.getElementById('player-name').value = "";
+        updateHistory();
+    }
+
+    function updateHistory() {
+        const history = JSON.parse(localStorage.getItem('art_players') || "[]");
+        const list = document.getElementById('history');
+        list.innerHTML = history.map(p => `<li>${p}</li>`).join('');
+    }
+
+    // Arrancar la primera tarjeta
+    window.onload = initCard;
+</script>
+</body>
+</html>
